@@ -1,0 +1,135 @@
+/*
+ * PSF design tokens — two layers: primitive → semantic/component.
+ *
+ * Components only ever consume the semantic/component layer (via the Tailwind
+ * utilities mapped in theme.css). Primitives are raw values and must not be
+ * referenced outside this file.
+ *
+ * Light mode only — there is no dark theme and no theme switch.
+ *
+ * Palette (deliberately two colors): dark blue `#232f3e` and white. Every
+ * neutral (borders, muted text, hover fills) is a tint or shade of the same
+ * navy via color-mix(), not a separate gray. Never introduce a third hue for
+ * chrome/decoration.
+ *
+ * Color rules:
+ *   - positive / negative are for money amounts ONLY (forest green = money in,
+ *     wine red = money out). Muted, navy-compatible tones on purpose — not
+ *     stock-ticker green/red. Never use them for buttons, nav, chart series
+ *     (multi-series charts use the navy ramp below), or decoration.
+ *   - destructive (amber) is for errors and irreversible actions — deliberately
+ *     not red, so "red" always means money out.
+ *   - positive/negative/destructive are functional status colors, kept outside
+ *     the 2-color brand palette on purpose: a finance app needs money in vs.
+ *     money out to stay legible, which a single-hue navy scale can't carry.
+ *   - primary is the one accent color: navy.
+ */
+
+/* ---------------------------------------------------------------- primitives */
+:root {
+  --prim-navy: #232f3e;
+  --prim-white: #ffffff;
+
+  /* Tints of navy on white — the entire neutral scale (backgrounds, borders,
+     muted text). Shade (mixed with black) is used only for a pressed/hover
+     state on navy surfaces. All derived from the one brand hue. */
+  --prim-navy-04: color-mix(in srgb, var(--prim-navy) 4%, white);
+  --prim-navy-08: color-mix(in srgb, var(--prim-navy) 8%, white);
+  --prim-navy-14: color-mix(in srgb, var(--prim-navy) 14%, white);
+  --prim-navy-24: color-mix(in srgb, var(--prim-navy) 24%, white);
+  --prim-navy-45: color-mix(in srgb, var(--prim-navy) 45%, white);
+  --prim-navy-70: color-mix(in srgb, var(--prim-navy) 70%, white);
+  --prim-navy-dark: color-mix(in srgb, var(--prim-navy) 100%, black 12%);
+
+  /* Money in / money out / errors — functional, not decorative. Muted
+     forest/wine tones, tuned to sit alongside navy rather than a bright
+     stock-ticker green/red. */
+  --prim-forest-700: #38684f;
+  --prim-wine-600: #9c3b46;
+  --prim-amber-700: #b45309;
+
+  --prim-shadow-soft: 0 1px 2px rgb(35 47 62 / 0.04), 0 12px 28px rgb(35 47 62 / 0.08);
+  --prim-shadow-lift: 0 16px 40px rgb(35 47 62 / 0.16);
+}
+
+/* ------------------------------------------------------------- semantic */
+:root {
+  color-scheme: light;
+
+  --background: var(--prim-navy-04);
+  --foreground: var(--prim-navy);
+
+  --card: var(--prim-white);
+  --card-foreground: var(--prim-navy);
+  --card-border: var(--prim-navy-14);
+
+  --popover: var(--prim-white);
+  --popover-foreground: var(--prim-navy);
+
+  --primary: var(--prim-navy);
+  --primary-hover: var(--prim-navy-dark);
+  --primary-foreground: var(--prim-white);
+
+  --secondary: var(--prim-white);
+  --secondary-hover: var(--prim-navy-08);
+  --secondary-foreground: var(--prim-navy);
+
+  --muted: var(--prim-navy-08);
+  --muted-foreground: var(--prim-navy-45);
+
+  --accent: var(--prim-navy-08);
+  --accent-foreground: var(--prim-navy);
+
+  --border: var(--prim-navy-14);
+  --input: var(--prim-navy-24);
+  --ring: var(--prim-navy);
+
+  --destructive: var(--prim-amber-700);
+  --destructive-foreground: var(--prim-white);
+
+  --positive: var(--prim-forest-700);
+  --negative: var(--prim-wine-600);
+
+  --shadow-card: var(--prim-shadow-soft);
+  --shadow-popover: var(--prim-shadow-lift);
+}
+
+/* ------------------------------------------------------ component tokens */
+:root {
+  --radius: 1rem;
+  --radius-card: 1.5rem;
+  --radius-pill: 9999px;
+
+  --segmented-track: var(--muted);
+  --segmented-active: var(--prim-white);
+  --segmented-active-foreground: var(--primary);
+
+  --sidebar: var(--prim-white);
+  --sidebar-foreground: var(--prim-navy-70);
+  --sidebar-border: var(--border);
+  --sidebar-active: var(--prim-navy-08);
+  --sidebar-active-foreground: var(--primary);
+
+  --table-header: var(--prim-navy-45);
+  --table-row-hover: var(--prim-navy-04);
+
+  --chart-series: var(--prim-navy);
+  --chart-grid: var(--prim-navy-14);
+  --chart-axis: var(--prim-navy-45);
+  --chart-cursor: var(--prim-navy-24);
+  /* Reference marker (bullet-chart target tick) — deliberately the darkest navy step so it
+     reads against every bar tint (navy-45 and navy-70) and the plain background alike. Paired
+     with a surface-color halo in the component itself, not a lighter/recessive tone. */
+  --chart-target: var(--prim-navy-dark);
+
+  /* Category pie ramp — rank order (darkest = largest), never reused elsewhere. */
+  --chart-cat-1: var(--prim-navy-dark);
+  --chart-cat-2: var(--prim-navy);
+  --chart-cat-3: var(--prim-navy-70);
+  --chart-cat-4: var(--prim-navy-45);
+  --chart-cat-other: var(--prim-navy-24);
+
+  /* Money in / out bars — two navy tints, kept off the positive/negative pair. */
+  --chart-flow-in: var(--prim-navy-70);
+  --chart-flow-out: var(--prim-navy-45);
+}

@@ -1,0 +1,6 @@
+description: Parser accuracy — each row the deterministic PDF parser produced, checked against its source line
+prompts:
+  - "{{parsed}}"
+providers:
+  - id: file://providers/echo.js
+tests: file://data/parser-tests.json

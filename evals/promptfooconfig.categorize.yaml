@@ -1,0 +1,6 @@
+description: Categorization accuracy — each transaction Jev categorized, checked for plausibility
+prompts:
+  - "{{categoryId}}"
+providers:
+  - id: file://providers/echo.js
+tests: file://data/categorize-tests.json
