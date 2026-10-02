@@ -15,6 +15,8 @@ export interface ReviewModalProps {
   account: string
   year: number
   month: number
+  /** Jev found accepted rows the deterministic parser has no draft for -- see runImportPipeline's missingRowCount. */
+  warning?: string
   onClose: () => void
   onSaved: () => void
 }
@@ -26,7 +28,7 @@ function errorMessage(error: unknown): string {
 }
 
 /** Confirmation modal: nothing is written to the transaction month until "Confirm & save" runs. */
-export function ReviewModal({ results: initialResults, categories, storage, bank, account, year, month, onClose, onSaved }: ReviewModalProps) {
+export function ReviewModal({ results: initialResults, categories, storage, bank, account, year, month, warning, onClose, onSaved }: ReviewModalProps) {
   const [results, setResults] = useState(initialResults)
   const [existingCount, setExistingCount] = useState<number | null>(null)
   const [saveState, setSaveState] = useState<SaveState>('idle')
@@ -100,6 +102,12 @@ export function ReviewModal({ results: initialResults, categories, storage, bank
             <p role="alert" className="mb-4 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               <AlertCircle size={16} aria-hidden="true" />
               This replaces {existingCount} existing transaction{existingCount === 1 ? '' : 's'} already stored for {bank} / {account}, {period}.
+            </p>
+          )}
+          {warning && (
+            <p role="alert" className="mb-4 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <AlertCircle size={16} aria-hidden="true" />
+              {warning}
             </p>
           )}
           <Table>

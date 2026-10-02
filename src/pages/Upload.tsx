@@ -38,7 +38,7 @@ export function Upload({ storage, accounts, categorizer: suppliedCategorizer, ca
    * agreement) -- never shown to the user and never used to change what gets imported.
    */
   const [pdfContext, setPdfContext] = useState<{ pages: PdfTextPage[]; statementYear: number; drafts: PdfTransactionDraft[] } | null>(null)
-  const [review, setReview] = useState<{ results: CategorizationResult[]; categories: Category[]; bank: string; account: string; year: number; month: number } | null>(null)
+  const [review, setReview] = useState<{ results: CategorizationResult[]; categories: Category[]; bank: string; account: string; year: number; month: number; warning?: string } | null>(null)
   const [coverage, setCoverage] = useState<AccountCoverage[]>([])
   const [coverageStatus, setCoverageStatus] = useState<'loading' | 'ready'>('loading')
   const [coverageReloadToken, setCoverageReloadToken] = useState(0)
@@ -128,7 +128,7 @@ export function Upload({ storage, accounts, categorizer: suppliedCategorizer, ca
       // blocks categorizing, it just means fewer "please verify" hints below.
       const judgeOptions = settings?.openRouterApiKey ? { apiKey: settings.openRouterApiKey } : null
       const input = transactions.map((transaction) => ({ ...transaction, bank, account }))
-      const results = await runImportPipeline({
+      const { results, missingRowCount } = await runImportPipeline({
         transactions: input,
         categories,
         rules,
@@ -140,7 +140,10 @@ export function Upload({ storage, accounts, categorizer: suppliedCategorizer, ca
 
       setStatus('ready')
       setMessage('')
-      setReview({ results, categories, bank, account, year: period.year, month: period.month })
+      const warning = missingRowCount > 0
+        ? `Jev found ${missingRowCount} transaction${missingRowCount === 1 ? '' : 's'} on this statement that the parser didn't pick up -- double check the total against your statement before saving.`
+        : undefined
+      setReview({ results, categories, bank, account, year: period.year, month: period.month, warning })
     } catch (error) {
       setStatus('error')
       setMessage(error instanceof Error ? error.message : 'Categorization failed.')
@@ -353,6 +356,7 @@ export function Upload({ storage, accounts, categorizer: suppliedCategorizer, ca
           account={review.account}
           year={review.year}
           month={review.month}
+          warning={review.warning}
           onClose={() => setReview(null)}
           onSaved={resetUpload}
         />

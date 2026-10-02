@@ -25,6 +25,12 @@ export interface ImportPipelineInput {
 
 type Flag = { flagged: true; flagReason: string }
 
+export interface ImportPipelineResult {
+  results: CategorizationResult[]
+  /** Jev found this many extra accepted rows the deterministic parser has no matching draft for -- see verifyExtraction. */
+  missingRowCount: number
+}
+
 /**
  * A row can get flagged by two independent QA checks: the extraction cross-check (parser vs.
  * Jev disagreed) and the category judge (the assigned category itself looks wrong). When both
@@ -44,17 +50,17 @@ export function resolveFlag(categoryVerdict: Flag | null, extractionReason: stri
  * `resolveFlag`. Both judge calls fail open -- a thrown error is treated as "no flag", never as
  * a blocked import.
  */
-export async function runImportPipeline(input: ImportPipelineInput): Promise<CategorizationResult[]> {
+export async function runImportPipeline(input: ImportPipelineInput): Promise<ImportPipelineResult> {
   const { transactions, categories, rules, categorizer, provider, judgeOptions, pdfContext } = input
 
-  const extractionFlags =
+  const { flags: extractionFlags, missingRowCount } =
     pdfContext && judgeOptions
-      ? await verifyExtraction(pdfContext.drafts, pdfContext.pages, pdfContext.statementYear, judgeOptions).catch(() => new Map<number, string>())
-      : new Map<number, string>()
+      ? await verifyExtraction(pdfContext.drafts, pdfContext.pages, pdfContext.statementYear, judgeOptions).catch(() => ({ flags: new Map<number, string>(), missingRowCount: 0 }))
+      : { flags: new Map<number, string>(), missingRowCount: 0 }
 
   const categorized = await categorize(transactions, categories, rules, categorizer, provider)
 
-  return Promise.all(
+  const results = await Promise.all(
     categorized.map(async (result, index): Promise<CategorizationResult> => {
       let categoryVerdict: Flag | null = null
       if (judgeOptions && (result.confidence === 'low' || result.confidence === 'medium')) {
@@ -69,4 +75,6 @@ export async function runImportPipeline(input: ImportPipelineInput): Promise<Cat
       return flag ? { ...result, ...flag } : result
     }),
   )
+
+  return { results, missingRowCount }
 }

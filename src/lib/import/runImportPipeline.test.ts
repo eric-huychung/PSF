@@ -66,7 +66,7 @@ describe('runImportPipeline -- no pdfContext (extraction never ran)', () => {
 
   it('does not call the category judge on a high-confidence result, and the row stays unflagged', async () => {
     const categorizer = fakeCategorizer({ coffee: { categoryId: 'groceries', confidence: 'high' } })
-    const results = await runImportPipeline({
+    const { results } = await runImportPipeline({
       transactions: [txn('coffee')],
       categories,
       rules,
@@ -82,7 +82,7 @@ describe('runImportPipeline -- no pdfContext (extraction never ran)', () => {
   it('flags a low-confidence result the category judge fails', async () => {
     vi.mocked(judgeCategorization).mockResolvedValue({ verdict: 'fail', reason: 'looks like dining, not groceries' })
     const categorizer = fakeCategorizer({ coffee: { categoryId: 'groceries', confidence: 'low' } })
-    const results = await runImportPipeline({
+    const { results } = await runImportPipeline({
       transactions: [txn('coffee')],
       categories,
       rules,
@@ -97,7 +97,7 @@ describe('runImportPipeline -- no pdfContext (extraction never ran)', () => {
   it('fails open when the category judge throws -- no flag, no thrown error', async () => {
     vi.mocked(judgeCategorization).mockRejectedValue(new Error('network error'))
     const categorizer = fakeCategorizer({ coffee: { categoryId: 'groceries', confidence: 'low' } })
-    const results = await runImportPipeline({
+    const { results } = await runImportPipeline({
       transactions: [txn('coffee')],
       categories,
       rules,
@@ -111,7 +111,7 @@ describe('runImportPipeline -- no pdfContext (extraction never ran)', () => {
 
   it('skips both judge calls when there is no OpenRouter key', async () => {
     const categorizer = fakeCategorizer({ coffee: { categoryId: 'groceries', confidence: 'low' } })
-    const results = await runImportPipeline({
+    const { results } = await runImportPipeline({
       transactions: [txn('coffee')],
       categories,
       rules,
@@ -129,9 +129,9 @@ describe('runImportPipeline -- extraction merge rule', () => {
   const pdfContext = { pages: [], statementYear: 2025, drafts: [] }
 
   it('surfaces the extraction flag when the category judge did not also flag that row', async () => {
-    vi.mocked(verifyExtraction).mockResolvedValue(new Map([[0, 'parser and Jev disagreed on this row']]))
+    vi.mocked(verifyExtraction).mockResolvedValue({ flags: new Map([[0, 'parser and Jev disagreed on this row']]), missingRowCount: 0 })
     const categorizer = fakeCategorizer({ coffee: { categoryId: 'groceries', confidence: 'high' } })
-    const results = await runImportPipeline({
+    const { results } = await runImportPipeline({
       transactions: [txn('coffee')],
       categories,
       rules,
@@ -144,10 +144,10 @@ describe('runImportPipeline -- extraction merge rule', () => {
   })
 
   it('lets the category verdict win over the extraction flag when both fire for the same row', async () => {
-    vi.mocked(verifyExtraction).mockResolvedValue(new Map([[0, 'parser and Jev disagreed on this row']]))
+    vi.mocked(verifyExtraction).mockResolvedValue({ flags: new Map([[0, 'parser and Jev disagreed on this row']]), missingRowCount: 0 })
     vi.mocked(judgeCategorization).mockResolvedValue({ verdict: 'fail', reason: 'wrong category' })
     const categorizer = fakeCategorizer({ coffee: { categoryId: 'groceries', confidence: 'low' } })
-    const results = await runImportPipeline({
+    const { results } = await runImportPipeline({
       transactions: [txn('coffee')],
       categories,
       rules,
@@ -162,7 +162,7 @@ describe('runImportPipeline -- extraction merge rule', () => {
   it('fails open when verifyExtraction rejects -- treated as no extraction flags', async () => {
     vi.mocked(verifyExtraction).mockRejectedValue(new Error('shadow extraction unavailable'))
     const categorizer = fakeCategorizer({ coffee: { categoryId: 'groceries', confidence: 'high' } })
-    const results = await runImportPipeline({
+    const { results } = await runImportPipeline({
       transactions: [txn('coffee')],
       categories,
       rules,
@@ -172,5 +172,20 @@ describe('runImportPipeline -- extraction merge rule', () => {
       pdfContext,
     })
     expect(results[0].flagged).toBeUndefined()
+  })
+
+  it('surfaces missingRowCount when Jev accepted rows have no matching deterministic draft', async () => {
+    vi.mocked(verifyExtraction).mockResolvedValue({ flags: new Map(), missingRowCount: 2 })
+    const categorizer = fakeCategorizer({ coffee: { categoryId: 'groceries', confidence: 'high' } })
+    const { missingRowCount } = await runImportPipeline({
+      transactions: [txn('coffee')],
+      categories,
+      rules,
+      categorizer,
+      provider: 'jev',
+      judgeOptions: { apiKey: 'k' },
+      pdfContext,
+    })
+    expect(missingRowCount).toBe(2)
   })
 })
