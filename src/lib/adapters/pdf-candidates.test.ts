@@ -55,4 +55,35 @@ describe('PDF transaction candidates', () => {
       items: [],
     }])).toEqual([])
   })
+
+  it('tags rows with the statement section named by the nearest header above them (Wells Fargo layout)', () => {
+    expect(findPdfTransactionCandidates([{
+      pageNumber: 3,
+      lines: [
+        'Payments',
+        '06/16 06/16 7414718HP0XSLPLM9 ONLINE PAYMENT THANK YOU 200.00',
+        'TOTAL PAYMENTS FOR THIS PERIOD $200.00',
+        'Purchases, Balance Transfers & Other Charges',
+        '7942 06/06 06/08 2449398HE6HD8G3B1 SDOT PARKING 8.00',
+      ],
+      items: [],
+    }])).toEqual([
+      expect.objectContaining({ dateText: '06/16', section: 'credit' }),
+      expect.objectContaining({ dateText: '06/06', section: 'charge' }),
+    ])
+  })
+
+  it('does not mistake a disclosure sentence that starts with "Payments:" for a section header', () => {
+    const result = findPdfTransactionCandidates([{
+      pageNumber: 2,
+      lines: [
+        'Payments: Your payment must be sent to the payment address shown on your statement.',
+        '06/06 06/08 2449398HE6HD8G3B1 SDOT PARKING 8.00',
+      ],
+      items: [],
+    }])
+    expect(result).toHaveLength(1)
+    expect(result[0].dateText).toBe('06/06')
+    expect(result[0].section).toBeUndefined()
+  })
 })

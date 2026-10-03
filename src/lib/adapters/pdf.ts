@@ -19,6 +19,14 @@ export interface PdfTransactionCandidate {
   dateText: string
   amountText: string
   rawText: string
+  /**
+   * Which statement section this row was found under, when the statement has section headers
+   * that say so ("Payments" vs "Purchases ... & Other Charges" / "Fees Charged" / "Interest
+   * Charged" / "Cash Advances"). Undefined when no such header was seen -- some issuers print an
+   * explicit +/- on every amount and never need this. See pdf-normalize.ts for why it matters:
+   * an issuer that prints bare, unsigned amounts (Wells Fargo) can only be told apart by section.
+   */
+  section?: 'credit' | 'charge'
 }
 
 function isTextItem(value: unknown): value is PdfTextItem {
@@ -68,7 +76,19 @@ const DATE_PREFIX = /^(?:(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\*?)|\d{1,6}\s+(\d{1,2}\
 const AMOUNT_SUFFIX = /([+-]?\$?\d[\d,]*\.\d{2})(-)?(?:\s*[♦◆])?$/
 const SECTION_LINE = /^(?:total|fees|interest|transactions|account|summary|payment|important|continued)\b/i
 
-function candidateFromLines(pageNumber: number, lines: string[]): PdfTransactionCandidate | null {
+/**
+ * Credit card section headers that tell rows under them apart when the amounts themselves carry
+ * no sign -- see the `section` field on PdfTransactionCandidate. Anchored to match the WHOLE
+ * line, not just its start: a loose `^payments\b` also matched Amex's boilerplate disclosure
+ * sentence "Payments: Your payment must be sent to..." wherever it appears in the document,
+ * mis-tagging every real charge row that came after it for the rest of the statement. A real
+ * section header is a short standalone label, never a sentence, so requiring the full line to be
+ * just the header rules that out.
+ */
+const CREDIT_SECTION_HEADER = /^payments$/i
+const CHARGE_SECTION_HEADER = /^(?:purchases, balance transfers & other charges|fees charged|interest charged|cash advances)$/i
+
+function candidateFromLines(pageNumber: number, lines: string[], section: 'credit' | 'charge' | undefined): PdfTransactionCandidate | null {
   const rawText = lines.join(' ')
   const dateMatch = DATE_PREFIX.exec(rawText)
   const amountMatch = lines.map((line) => AMOUNT_SUFFIX.exec(line)).find(Boolean)
@@ -79,12 +99,16 @@ function candidateFromLines(pageNumber: number, lines: string[]): PdfTransaction
     dateText: dateText.replace('*', ''),
     amountText: `${amountMatch[1]}${amountMatch[2] ?? ''}`,
     rawText,
+    ...(section ? { section } : {}),
   }
 }
 
 /** Finds likely transaction rows while preserving source text for later validation. */
 export function findPdfTransactionCandidates(pages: PdfTextPage[]): PdfTransactionCandidate[] {
   const candidates: PdfTransactionCandidate[] = []
+  // Persists across pages -- a statement section can continue onto the next page without
+  // repeating its header.
+  let currentSection: 'credit' | 'charge' | undefined
 
   for (const page of pages) {
     let pending: string[] = []
@@ -93,14 +117,22 @@ export function findPdfTransactionCandidates(pages: PdfTextPage[]): PdfTransacti
     // never a continuation of the row above it, even if it doesn't itself match SECTION_LINE.
     let closed = false
     const flush = () => {
-      const candidate = candidateFromLines(page.pageNumber, pending)
+      const candidate = candidateFromLines(page.pageNumber, pending, currentSection)
       if (candidate) candidates.push(candidate)
       pending = []
       closed = false
     }
 
     for (const line of page.lines) {
-      if (DATE_PREFIX.test(line)) {
+      if (CREDIT_SECTION_HEADER.test(line)) {
+        flush()
+        currentSection = 'credit'
+        closed = true
+      } else if (CHARGE_SECTION_HEADER.test(line)) {
+        flush()
+        currentSection = 'charge'
+        closed = true
+      } else if (DATE_PREFIX.test(line)) {
         flush()
         pending = [line]
       } else if (SECTION_LINE.test(line)) {

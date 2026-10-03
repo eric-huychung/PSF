@@ -40,14 +40,16 @@ function parseDate(value: string, statementYear: number): string {
   return `${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
 }
 
-function parseAmount(value: string): number {
+/** `hasExplicitSign` is true when the text itself carried a minus/parens -- see materializeRow for why that matters. */
+function parseAmount(value: string): { amount: number; hasExplicitSign: boolean } {
   const trailingMinus = value.endsWith('-')
   const parentheses = value.startsWith('(') && value.endsWith(')')
   const leadingMinus = value.startsWith('-')
   const numeric = value.replace(/[$(),-]/g, '').trim()
   if (!/^\d+(?:\.\d{2})?$/.test(numeric)) throw new Error(`invalid amount "${value}"`)
   const amount = Number(numeric)
-  return trailingMinus || parentheses || leadingMinus ? -amount : amount
+  const hasExplicitSign = trailingMinus || parentheses || leadingMinus
+  return { amount: hasExplicitSign ? -amount : amount, hasExplicitSign }
 }
 
 /**
@@ -84,6 +86,8 @@ interface RawPdfRow {
   amountText: string
   description: string
   sourceText: string
+  /** Which statement section the row came from, when known -- see PdfTransactionCandidate.section. */
+  section?: 'credit' | 'charge'
 }
 
 interface MaterializedRow {
@@ -99,13 +103,26 @@ interface MaterializedRow {
  * row with no description or an unparseable date/amount instead of guessing. Both paths feed it
  * their own raw text (a whole candidate line vs. Jev's resolved evidence fields) and attach their
  * own identifying fields (windowId, pageNumber) to the result themselves.
+ *
+ * Some issuers (Wells Fargo) print every amount bare, with no minus/parens anywhere -- a charge
+ * and a payment are textually identical, told apart only by which section of the statement they're
+ * printed under. When that's the situation (credit card, no explicit sign in the text, and the
+ * row's section is known), the section decides the sign instead of the blind per-statement flip:
+ * a "credit" row (Payments) comes out positive, a "charge" row (Purchases/Fees/Interest/Cash
+ * Advances) comes out negative. Whenever the text does carry an explicit sign, or the section
+ * isn't known, nothing changes -- this only resolves a case that was otherwise ambiguous.
  */
 function materializeRow(row: RawPdfRow, statementYear: number, isCreditCard: boolean): MaterializedRow {
   if (!row.description) throw new Error('missing description')
-  const rawAmount = parseAmount(row.amountText)
+  const { amount: rawAmount, hasExplicitSign } = parseAmount(row.amountText)
+  const amount = isCreditCard
+    ? !hasExplicitSign && row.section
+      ? row.section === 'credit' ? Math.abs(rawAmount) : -Math.abs(rawAmount)
+      : -rawAmount
+    : rawAmount
   return {
     date: parseDate(row.dateText, statementYear),
-    amount: isCreditCard ? -rawAmount : rawAmount,
+    amount,
     description: row.description,
     sourceText: row.sourceText,
   }
@@ -123,7 +140,7 @@ export function normalizePdfCandidates(
   for (const candidate of candidates) {
     try {
       const row = materializeRow(
-        { dateText: candidate.dateText, amountText: candidate.amountText, description: descriptionFrom(candidate), sourceText: candidate.rawText },
+        { dateText: candidate.dateText, amountText: candidate.amountText, description: descriptionFrom(candidate), sourceText: candidate.rawText, section: candidate.section },
         statementYear,
         isCreditCard,
       )

@@ -63,6 +63,26 @@ describe('PDF candidate normalization', () => {
     )
     expect(result.drafts).toEqual([expect.objectContaining({ amount: -15.01 })])
   })
+
+  it('uses the section to pick the sign when a credit card statement prints bare amounts with no sign at all (Wells Fargo)', () => {
+    const result = normalizePdfCandidates([
+      { pageNumber: 1, dateText: '06/16', amountText: '200.00', rawText: '06/16 ONLINE PAYMENT THANK YOU 200.00', section: 'credit' },
+      { pageNumber: 1, dateText: '06/06', amountText: '8.00', rawText: '7942 06/06 SDOT PARKING 8.00', section: 'charge' },
+    ], 2026, true)
+    expect(result.drafts).toEqual([
+      expect.objectContaining({ amount: 200 }),
+      expect.objectContaining({ amount: -8 }),
+    ])
+  })
+
+  it('falls back to the blind flip when the section is unknown, same as before the section-aware fix', () => {
+    const result = normalizePdfCandidates(
+      [{ pageNumber: 1, dateText: '06/16', amountText: '200.00', rawText: '06/16 UNSECTIONED ROW 200.00' }],
+      2026,
+      true,
+    )
+    expect(result.drafts).toEqual([expect.objectContaining({ amount: -200 })])
+  })
 })
 
 describe('isCreditCardStatement', () => {
