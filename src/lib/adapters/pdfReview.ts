@@ -12,7 +12,7 @@ import {
   type ResolvedPdfAssignment,
 } from '../llm/pdfExtractionSchema'
 import { findPdfTransactionCandidates, type PdfTextPage } from './pdf'
-import { isCreditCardStatement, materializeAssignments, type PdfMaterializedDraft, type RejectedPdfAssignment } from './pdf-normalize'
+import { materializeAssignments, type PdfMaterializedDraft, type RejectedPdfAssignment } from './pdf-normalize'
 import { buildPdfEvidence, type PdfEvidenceWindow } from './pdfEvidence'
 import { validatePdfExtraction, type PdfValidationResult } from './pdfValidation'
 
@@ -131,6 +131,8 @@ export async function runPdfShadowExtraction(
   pages: PdfTextPage[],
   statementYear: number,
   options: PdfExtractionRequestOptions,
+  /** Same account-type-derived flag the deterministic path uses -- see resolveSignConvention. */
+  isCreditCard: boolean,
 ): Promise<PdfShadowResult> {
   const deterministicCandidateCount = findPdfTransactionCandidates(pages).length
   const windows = buildPdfEvidence(pages)
@@ -156,7 +158,7 @@ export async function runPdfShadowExtraction(
     }
   }
 
-  const { drafts, rejected } = materializeAssignments(resolved, statementYear, isCreditCardStatement(pages))
+  const { drafts, rejected } = materializeAssignments(resolved, statementYear, isCreditCard)
   const validation = validatePdfExtraction(drafts, resolved, windows, statementYear)
   const flaggedWindowIds = new Set(validation.issues.flatMap((issue) => issue.windowIds))
   const flaggedDraftCount = drafts.filter((draft) => flaggedWindowIds.has(draft.windowId)).length

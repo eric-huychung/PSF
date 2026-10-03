@@ -9,6 +9,8 @@ export interface PdfImportContext {
   pages: PdfTextPage[]
   statementYear: number
   drafts: PdfTransactionDraft[]
+  /** Same account-type-derived flag used to materialize `drafts` -- see resolveSignConvention. */
+  isCreditCard: boolean
 }
 
 export interface ImportPipelineInput {
@@ -55,7 +57,7 @@ export async function runImportPipeline(input: ImportPipelineInput): Promise<Imp
 
   const { flags: extractionFlags, missingRowCount } =
     pdfContext && judgeOptions
-      ? await verifyExtraction(pdfContext.drafts, pdfContext.pages, pdfContext.statementYear, judgeOptions).catch(() => ({ flags: new Map<number, string>(), missingRowCount: 0 }))
+      ? await verifyExtraction(pdfContext.drafts, pdfContext.pages, pdfContext.statementYear, judgeOptions, pdfContext.isCreditCard).catch(() => ({ flags: new Map<number, string>(), missingRowCount: 0 }))
       : { flags: new Map<number, string>(), missingRowCount: 0 }
 
   const categorized = await categorize(transactions, categories, rules, categorizer, provider)

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ResolvedPdfAssignment } from '../llm/pdfExtractionSchema'
 import type { PdfTextPage } from './pdf'
-import { isCreditCardStatement, materializeAssignments, normalizePdfCandidates } from './pdf-normalize'
+import { isCreditCardStatement, materializeAssignments, normalizePdfCandidates, resolveSignConvention } from './pdf-normalize'
 
 describe('PDF candidate normalization', () => {
   it('normalizes full and inferred-year dates and bank amount signs', () => {
@@ -104,6 +104,24 @@ describe('isCreditCardStatement', () => {
 
   it('recognizes Wells Fargo-style statements that print "Minimum Payment" and "Payment Due Date" as separate fields', () => {
     expect(isCreditCardStatement([pageWithLines(['Payment Due Date 08/02/2026', 'Minimum Payment $73.00', 'New Balance $3,137.55'])])).toBe(true)
+  })
+})
+
+describe('resolveSignConvention', () => {
+  function pageWithLines(lines: string[]): PdfTextPage {
+    return { pageNumber: 1, lines, items: [] }
+  }
+  const creditCardPages = [pageWithLines(['New Balance $18.21', 'Minimum Payment Due $18.21'])]
+  const checkingPages = [pageWithLines(['Beginning balance on April 18, 2026', 'Deposits and other additions'])]
+
+  it('trusts the account type over the text-sniff when they agree', () => {
+    expect(resolveSignConvention('credit', creditCardPages)).toEqual({ isCreditCard: true, mismatch: false })
+    expect(resolveSignConvention('checking', checkingPages)).toEqual({ isCreditCard: false, mismatch: false })
+  })
+
+  it('still decides by account type, but flags a mismatch, when the statement text disagrees with the account type', () => {
+    expect(resolveSignConvention('checking', creditCardPages)).toEqual({ isCreditCard: false, mismatch: true })
+    expect(resolveSignConvention('credit', checkingPages)).toEqual({ isCreditCard: true, mismatch: true })
   })
 })
 

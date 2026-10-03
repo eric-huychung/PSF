@@ -32,7 +32,7 @@ function draft(overrides: Partial<PdfTransactionDraft> = {}): PdfTransactionDraf
 describe('verifyExtraction -- missing rows', () => {
   it('reports zero missing rows when every Jev row matches a draft', async () => {
     vi.mocked(runPdfShadowExtraction).mockResolvedValue(shadow([shadowRow()]))
-    const result = await verifyExtraction([draft()], pages, 2026, options)
+    const result = await verifyExtraction([draft()], pages, 2026, options, false)
     expect(result.missingRowCount).toBe(0)
   })
 
@@ -41,7 +41,7 @@ describe('verifyExtraction -- missing rows', () => {
       shadowRow(),
       shadowRow({ windowId: 'w2', date: '2026-06-07', amount: -47 }),
     ]))
-    const result = await verifyExtraction([draft()], pages, 2026, options)
+    const result = await verifyExtraction([draft()], pages, 2026, options, false)
     expect(result.missingRowCount).toBe(1)
   })
 
@@ -50,13 +50,13 @@ describe('verifyExtraction -- missing rows', () => {
       shadowRow(),
       shadowRow({ windowId: 'w2', status: 'non-transaction', date: undefined, amount: undefined }),
     ]))
-    const result = await verifyExtraction([draft()], pages, 2026, options)
+    const result = await verifyExtraction([draft()], pages, 2026, options, false)
     expect(result.missingRowCount).toBe(0)
   })
 
   it('reports zero missing rows when Jev is unavailable, same as today', async () => {
     vi.mocked(runPdfShadowExtraction).mockResolvedValue({ mode: 'unavailable', rows: [], metrics: shadow([]).metrics })
-    const result = await verifyExtraction([draft()], pages, 2026, options)
+    const result = await verifyExtraction([draft()], pages, 2026, options, false)
     expect(result.missingRowCount).toBe(0)
     expect(judgeExtraction).not.toHaveBeenCalled()
   })

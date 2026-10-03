@@ -61,7 +61,7 @@ describe('runPdfShadowExtraction', () => {
     const pages = [page()]
     const fetch = vi.fn<typeof globalThis.fetch>(async () => decisionsResponse(batchAnswers()))
 
-    const result = await runPdfShadowExtraction(pages, 2026, { apiKey: 'sk-test', fetch })
+    const result = await runPdfShadowExtraction(pages, 2026, { apiKey: 'sk-test', fetch }, false)
 
     expect(result.mode).toBe('ready')
     expect(result.rows).toContainEqual(
@@ -76,7 +76,7 @@ describe('runPdfShadowExtraction', () => {
     const pages = [page()]
     const fetch = vi.fn<typeof globalThis.fetch>(async () => decisionsResponse(batchAnswers()))
 
-    await runPdfShadowExtraction(pages, 2026, { apiKey: 'sk-test', fetch })
+    await runPdfShadowExtraction(pages, 2026, { apiKey: 'sk-test', fetch }, false)
 
     // The only side effect available to this function is the injected fetch -- nothing else was touched.
     expect(fetch).toHaveBeenCalledTimes(1)
@@ -86,7 +86,7 @@ describe('runPdfShadowExtraction', () => {
     const pages = [page()]
     const fetch = vi.fn<typeof globalThis.fetch>(async () => decisionsResponse({ answers: {}, usage: { input_tokens: 1, output_tokens: 1 } }))
 
-    const result = await runPdfShadowExtraction(pages, 2026, { apiKey: 'sk-test', fetch })
+    const result = await runPdfShadowExtraction(pages, 2026, { apiKey: 'sk-test', fetch }, false)
 
     expect(result.mode).toBe('unavailable')
     expect(result.rows).toEqual([])
@@ -101,7 +101,7 @@ describe('runPdfShadowExtraction', () => {
       .mockResolvedValueOnce(new Response('{}', { status: 503 }))
       .mockResolvedValueOnce(decisionsResponse(batchAnswers()))
 
-    const result = await runPdfShadowExtraction(pages, 2026, { apiKey: 'sk-test', fetch })
+    const result = await runPdfShadowExtraction(pages, 2026, { apiKey: 'sk-test', fetch }, false)
 
     expect(result.mode).toBe('ready')
     expect(fetch).toHaveBeenCalledTimes(2)
@@ -111,7 +111,7 @@ describe('runPdfShadowExtraction', () => {
     const pages = [page()]
     const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response('{}', { status: 503 }))
 
-    const result = await runPdfShadowExtraction(pages, 2026, { apiKey: 'sk-test', fetch })
+    const result = await runPdfShadowExtraction(pages, 2026, { apiKey: 'sk-test', fetch }, false)
 
     expect(result.mode).toBe('unavailable')
     expect(fetch).toHaveBeenCalledTimes(2)
@@ -123,7 +123,7 @@ describe('runPdfShadowExtraction', () => {
     const pages = [page([item('08/06', 10, 90), item('STEAMGAMES.COM', 100, 90), item('TBD', 300, 90)])]
     const fetch = vi.fn<typeof globalThis.fetch>(async () => decisionsResponse(batchAnswers()))
 
-    const result = await runPdfShadowExtraction(pages, 2026, { apiKey: 'sk-test', fetch })
+    const result = await runPdfShadowExtraction(pages, 2026, { apiKey: 'sk-test', fetch }, false)
 
     expect(result.mode).toBe('needs-review')
     expect(result.rows).toContainEqual(expect.objectContaining({ windowId: ROW_WINDOW, status: 'rejected' }))
@@ -135,7 +135,7 @@ describe('runPdfShadowExtraction', () => {
     const pages = [page()]
     const fetch = vi.fn<typeof globalThis.fetch>(async () => decisionsResponse(batchAnswers({ row: { status: 'accepted', date: 'none' } })))
 
-    const result = await runPdfShadowExtraction(pages, 2026, { apiKey: 'sk-test', fetch })
+    const result = await runPdfShadowExtraction(pages, 2026, { apiKey: 'sk-test', fetch }, false)
 
     expect(result.mode).not.toBe('unavailable')
     expect(result.rows).toContainEqual(expect.objectContaining({ windowId: ROW_WINDOW, status: 'unresolved' }))

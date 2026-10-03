@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertCircle, AlertTriangle, Check, FileUp, LoaderCircle } from 'lucide-react'
 import { extractPdfText, findPdfTransactionCandidates, type PdfTextPage } from '../lib/adapters/pdf'
-import { isCreditCardStatement, normalizePdfCandidates, type PdfTransactionDraft } from '../lib/adapters/pdf-normalize'
+import { resolveSignConvention, normalizePdfCandidates, type PdfTransactionDraft } from '../lib/adapters/pdf-normalize'
 import { createCategorizer } from '../lib/categorization/categorizer'
 import { runImportPipeline } from '../lib/import/runImportPipeline'
 import type { BankAccount, CategorizationResult, Category, StorageLayer } from '../lib/types'
@@ -37,7 +37,7 @@ export function Upload({ storage, accounts, categorizer: suppliedCategorizer, ca
    * Kept only to feed the silent extraction QA check in handleCategorize (parser-vs-Jev
    * agreement) -- never shown to the user and never used to change what gets imported.
    */
-  const [pdfContext, setPdfContext] = useState<{ pages: PdfTextPage[]; statementYear: number; drafts: PdfTransactionDraft[] } | null>(null)
+  const [pdfContext, setPdfContext] = useState<{ pages: PdfTextPage[]; statementYear: number; drafts: PdfTransactionDraft[]; isCreditCard: boolean } | null>(null)
   const [review, setReview] = useState<{ results: CategorizationResult[]; categories: Category[]; bank: string; account: string; year: number; month: number; warning?: string } | null>(null)
   const [coverage, setCoverage] = useState<AccountCoverage[]>([])
   const [coverageStatus, setCoverageStatus] = useState<'loading' | 'ready'>('loading')
@@ -81,7 +81,9 @@ export function Upload({ storage, accounts, categorizer: suppliedCategorizer, ca
       const pages = await extractPdfText(file)
       const candidates = findPdfTransactionCandidates(pages)
       const statementYear = Number(/(?:^|\D)(20\d{2})(?:\D|$)/.exec(file.name)?.[1] ?? new Date().getFullYear())
-      const normalized = normalizePdfCandidates(candidates, statementYear, isCreditCardStatement(pages))
+      const accountType = accounts.find((entry) => entry.bank === bank)?.accounts.find((item) => item.name === account)?.type ?? 'checking'
+      const { isCreditCard, mismatch } = resolveSignConvention(accountType, pages)
+      const normalized = normalizePdfCandidates(candidates, statementYear, isCreditCard)
       const parsed = normalized.drafts.map((draft) => ({
         date: draft.date,
         amount: draft.amount,
@@ -92,12 +94,14 @@ export function Upload({ storage, accounts, categorizer: suppliedCategorizer, ca
       setTransactions(parsed)
       setFileName(file.name)
       setStatus('ready')
-      setMessage(parsed.length
-        ? normalized.rejected.length
-          ? `${normalized.rejected.length} row${normalized.rejected.length === 1 ? '' : 's'} rejected during extraction.`
-          : ''
-        : 'No transaction candidates were found in this PDF.')
-      setPdfContext({ pages, statementYear, drafts: normalized.drafts })
+      const rejectedMessage = normalized.rejected.length
+        ? `${normalized.rejected.length} row${normalized.rejected.length === 1 ? '' : 's'} rejected during extraction.`
+        : ''
+      const mismatchMessage = mismatch
+        ? `This statement's text doesn't look like what a ${accountType === 'credit' ? 'credit card' : 'checking/savings'} statement usually prints, but ${account} is tagged ${accountType === 'credit' ? 'credit card' : accountType} -- double check the transaction signs before saving.`
+        : ''
+      setMessage(parsed.length ? [rejectedMessage, mismatchMessage].filter(Boolean).join(' ') : 'No transaction candidates were found in this PDF.')
+      setPdfContext({ pages, statementYear, drafts: normalized.drafts, isCreditCard })
     } catch (error) {
       setStatus('error')
       setMessage(error instanceof Error ? error.message : 'Could not read this statement.')

@@ -1,4 +1,5 @@
 import type { ResolvedPdfAssignment } from '../llm/pdfExtractionSchema'
+import type { AccountType } from '../types'
 import type { PdfTextPage, PdfTransactionCandidate } from './pdf'
 
 export interface PdfTransactionDraft {
@@ -71,6 +72,19 @@ function parseAmount(value: string): { amount: number; hasExplicitSign: boolean 
  */
 export function isCreditCardStatement(pages: ReadonlyArray<PdfTextPage>): boolean {
   return pages.some((page) => page.lines.some((line) => /minimum payment\b/i.test(line)))
+}
+
+/**
+ * The account's declared type (set in Settings, see types.ts's AccountType) is the authoritative
+ * sign-convention source -- isCreditCardStatement's text-sniff now only runs as a cross-check.
+ * Disagreement is surfaced as a "please verify" flag rather than resolved silently: a legacy
+ * account's guessed-from-name type (see normalizeAccounts.ts), or a statement dropped onto the
+ * wrong account, should never flip every sign on a statement without the user noticing, the same
+ * reasoning that already applies to the Jev extraction cross-check.
+ */
+export function resolveSignConvention(accountType: AccountType, pages: ReadonlyArray<PdfTextPage>): { isCreditCard: boolean; mismatch: boolean } {
+  const isCreditCard = accountType === 'credit'
+  return { isCreditCard, mismatch: isCreditCard !== isCreditCardStatement(pages) }
 }
 
 function descriptionFrom(candidate: PdfTransactionCandidate): string {
@@ -182,10 +196,10 @@ export interface PdfMaterializationResult {
  *
  * The sign comes from `parseAmount`'s own text cues (trailing minus, parentheses), the exact
  * function the deterministic path above already trusts -- not from Jev's semantic debit/credit
- * judgment. `isCreditCard` is the one exception, and it's still not a judgment call: it's
- * `isCreditCardStatement`'s deterministic read of the statement's own required "Minimum Payment
- * Due" disclosure, the same flag the deterministic path above uses -- so the two never disagree
- * with each other over which convention applies.
+ * judgment. `isCreditCard` is the one exception, and it's still not a judgment call: the caller
+ * passes in the same account-type-derived flag (see `resolveSignConvention`) that the
+ * deterministic path above uses -- so the two never disagree with each other over which
+ * convention applies.
  */
 export function materializeAssignments(
   resolved: ResolvedPdfAssignment[],

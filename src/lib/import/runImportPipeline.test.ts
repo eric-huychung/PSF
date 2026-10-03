@@ -126,7 +126,7 @@ describe('runImportPipeline -- no pdfContext (extraction never ran)', () => {
 })
 
 describe('runImportPipeline -- extraction merge rule', () => {
-  const pdfContext = { pages: [], statementYear: 2025, drafts: [] }
+  const pdfContext = { pages: [], statementYear: 2025, drafts: [], isCreditCard: false }
 
   it('surfaces the extraction flag when the category judge did not also flag that row', async () => {
     vi.mocked(verifyExtraction).mockResolvedValue({ flags: new Map([[0, 'parser and Jev disagreed on this row']]), missingRowCount: 0 })

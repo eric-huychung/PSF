@@ -99,6 +99,21 @@ describe('Upload confirmation modal', () => {
     await screen.findByText('Add at least one category in Settings before importing.')
     expect(storage.readCategories).toHaveBeenCalledTimes(1)
   })
+
+  it('warns when the account is tagged credit card but the statement text does not look like one', async () => {
+    const { container } = render(<Upload storage={makeStorage()} accounts={accounts} />)
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Bank' }))
+    fireEvent.click(within(screen.getByRole('listbox')).getByText('amex'))
+    fireEvent.click(screen.getByRole('combobox', { name: 'Account' }))
+    fireEvent.click(within(screen.getByRole('listbox')).getByText('gold'))
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [pdfFile()] } })
+
+    const modal = await screen.findByRole('dialog', { name: 'Confirm statement import' })
+    expect(within(modal).getByText(/doesn't look like/)).toBeInTheDocument()
+  })
 })
 
 describe('Upload confirmation modal -- existing statement warning', () => {

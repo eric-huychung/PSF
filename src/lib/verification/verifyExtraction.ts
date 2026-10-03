@@ -33,13 +33,14 @@ export async function verifyExtraction(
   pages: PdfTextPage[],
   statementYear: number,
   options: JudgeOptions,
+  isCreditCard: boolean,
 ): Promise<VerifyExtractionResult> {
   const flags = new Map<number, string>()
   if (!drafts.length) return { flags, missingRowCount: 0 }
 
   let shadow
   try {
-    shadow = await runPdfShadowExtraction(pages, statementYear, options)
+    shadow = await runPdfShadowExtraction(pages, statementYear, options, isCreditCard)
   } catch {
     return { flags, missingRowCount: 0 }
   }
