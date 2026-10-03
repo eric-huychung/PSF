@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertCircle, AlertTriangle, Check, FileUp, LoaderCircle } from 'lucide-react'
 import { extractPdfText, findPdfTransactionCandidates, type PdfTextPage } from '../lib/adapters/pdf'
-import { resolveSignConvention, normalizePdfCandidates, type PdfTransactionDraft } from '../lib/adapters/pdf-normalize'
+import { extractStatementBalances, resolveSignConvention, normalizePdfCandidates, type PdfTransactionDraft, type StatementBalances } from '../lib/adapters/pdf-normalize'
 import { createCategorizer } from '../lib/categorization/categorizer'
 import { runImportPipeline } from '../lib/import/runImportPipeline'
+import { reconcileCreditCardBalance, type BalanceReconciliation } from '../lib/verification/reconcileBalance'
 import type { BankAccount, CategorizationResult, Category, StorageLayer } from '../lib/types'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
@@ -38,6 +39,10 @@ export function Upload({ storage, accounts, categorizer: suppliedCategorizer, ca
    * agreement) -- never shown to the user and never used to change what gets imported.
    */
   const [pdfContext, setPdfContext] = useState<{ pages: PdfTextPage[]; statementYear: number; drafts: PdfTransactionDraft[]; isCreditCard: boolean } | null>(null)
+  /** Credit-card-only statement-level check (see reconcileBalance.ts) -- null for checking/savings, which isn't wired up for this yet. */
+  const [balanceCheck, setBalanceCheck] = useState<{ balances: StatementBalances | null; reconciliation: BalanceReconciliation | null } | null>(null)
+  /** Object URL for the uploaded PDF so the balance-check tab can show the original statement for a quick visual compare. Revoked whenever it's replaced or cleared. */
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null)
   const [review, setReview] = useState<{ results: CategorizationResult[]; categories: Category[]; bank: string; account: string; year: number; month: number; warning?: string } | null>(null)
   const [coverage, setCoverage] = useState<AccountCoverage[]>([])
   const [coverageStatus, setCoverageStatus] = useState<'loading' | 'ready'>('loading')
@@ -102,6 +107,14 @@ export function Upload({ storage, accounts, categorizer: suppliedCategorizer, ca
         : ''
       setMessage(parsed.length ? [rejectedMessage, mismatchMessage].filter(Boolean).join(' ') : 'No transaction candidates were found in this PDF.')
       setPdfContext({ pages, statementYear, drafts: normalized.drafts, isCreditCard })
+      if (isCreditCard) {
+        const balances = extractStatementBalances(pages)
+        setBalanceCheck({ balances, reconciliation: balances ? reconcileCreditCardBalance(normalized.drafts, balances) : null })
+      } else {
+        setBalanceCheck(null)
+      }
+      if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl)
+      setPdfPreviewUrl(URL.createObjectURL(file))
     } catch (error) {
       setStatus('error')
       setMessage(error instanceof Error ? error.message : 'Could not read this statement.')
@@ -160,6 +173,9 @@ export function Upload({ storage, accounts, categorizer: suppliedCategorizer, ca
     setMessage('')
     setStatus('idle')
     setPdfContext(null)
+    setBalanceCheck(null)
+    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl)
+    setPdfPreviewUrl(null)
     setCoverageReloadToken((token) => token + 1)
   }
 
@@ -362,6 +378,8 @@ export function Upload({ storage, accounts, categorizer: suppliedCategorizer, ca
           year={review.year}
           month={review.month}
           warning={review.warning}
+          balanceCheck={balanceCheck ?? undefined}
+          pdfPreviewUrl={pdfPreviewUrl}
           onClose={() => setReview(null)}
           onSaved={resetUpload}
         />
