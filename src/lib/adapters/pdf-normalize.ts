@@ -110,17 +110,26 @@ export interface StatementBalances {
  * the other column, e.g. "Previous Balance $1,814.13 Total Credit Limit $5,000". The lazy
  * non-digit match right after the label stops at that label's own amount, before reaching the
  * next field's number.
+ *
+ * A balance can itself be a credit (the issuer owes the cardholder, e.g. after an overpayment) --
+ * Robinhood prints that as a trailing minus on the amount itself, same convention as a transaction
+ * amount elsewhere in this file ("$242.17-"), so it's captured and applied here too.
  */
+function parseBalanceAmount(digits: string, trailingMinus: string | undefined): number {
+  const amount = Number(digits.replace(/,/g, ''))
+  return trailingMinus ? -amount : amount
+}
+
 export function extractStatementBalances(pages: ReadonlyArray<PdfTextPage>): StatementBalances | null {
   let pendingPrevious: number | undefined
   let result: StatementBalances | null = null
   for (const page of pages) {
     for (const line of page.lines) {
-      const previousMatch = /previous balance\D*?\$?([\d,]+\.\d{2})/i.exec(line)
-      if (previousMatch) pendingPrevious = Number(previousMatch[1].replace(/,/g, ''))
-      const newMatch = /new balance\D*?\$?([\d,]+\.\d{2})/i.exec(line)
+      const previousMatch = /previous balance\D*?\$?([\d,]+\.\d{2})(-)?/i.exec(line)
+      if (previousMatch) pendingPrevious = parseBalanceAmount(previousMatch[1], previousMatch[2])
+      const newMatch = /new balance\D*?\$?([\d,]+\.\d{2})(-)?/i.exec(line)
       if (newMatch && pendingPrevious !== undefined) {
-        result = { previousBalance: pendingPrevious, newBalance: Number(newMatch[1].replace(/,/g, '')) }
+        result = { previousBalance: pendingPrevious, newBalance: parseBalanceAmount(newMatch[1], newMatch[2]) }
         pendingPrevious = undefined
       }
     }

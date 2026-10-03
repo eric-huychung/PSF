@@ -151,6 +151,23 @@ describe('extractStatementBalances', () => {
     expect(extractStatementBalances([pageWithLines(['Previous Balance $18.21'])])).toBeNull()
   })
 
+  it('treats a trailing minus on the New Balance as a credit, not a debit (Robinhood)', () => {
+    const result = extractStatementBalances([pageWithLines([
+      'New Balance $242.17-',
+      'Previous Balance $2,231.46',
+      '= New Balance $242.17-',
+    ])])
+    expect(result).toEqual({ previousBalance: 2231.46, newBalance: -242.17 })
+  })
+
+  it('treats a trailing minus on the Previous Balance as a credit too', () => {
+    const result = extractStatementBalances([pageWithLines([
+      'Previous Balance $242.17-',
+      '= New Balance $1,011.02',
+    ])])
+    expect(result).toEqual({ previousBalance: -242.17, newBalance: 1011.02 })
+  })
+
   it('finds the pair when the balance box is on a later page', () => {
     const result = extractStatementBalances([
       pageWithLines(['Transactions continued']),
