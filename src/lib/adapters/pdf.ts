@@ -73,7 +73,12 @@ export function groupTextItemsIntoLines(items: PdfTextItem[], yTolerance = 2): s
  * second token but aren't transactions; digits-only avoids both).
  */
 const DATE_PREFIX = /^(?:(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\*?)|\d{1,6}\s+(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\*?))(?:\s|$)/
-const AMOUNT_SUFFIX = /([+-]?\$?\d[\d,]*\.\d{2})(-)?(?:\s*[♦◆])?$/
+// The trailing glyph is an issuer marker (e.g. Amex's "Pay Over Time" diamond) with no meaning
+// to the parser -- it's matched only so its presence doesn't stop the line from matching $ at
+// the end. Kept as an explicit allowlist, not a broader symbol range: a glyph outside this list
+// makes the row fail to match at all (see the console.warn below), which is how this file caught
+// U+29EB being missing in the first place. A silent broad match would hide the next one instead.
+const AMOUNT_SUFFIX = /([+-]?\$?\d[\d,]*\.\d{2})(-)?(?:\s*[♦◆⧫])?$/
 const SECTION_LINE = /^(?:total|fees|interest|transactions|account|summary|payment|important|continued)\b/i
 
 /**
@@ -91,8 +96,18 @@ const CHARGE_SECTION_HEADER = /^(?:purchases, balance transfers & other charges|
 function candidateFromLines(pageNumber: number, lines: string[], section: 'credit' | 'charge' | undefined): PdfTransactionCandidate | null {
   const rawText = lines.join(' ')
   const dateMatch = DATE_PREFIX.exec(rawText)
+  if (!dateMatch) return null
   const amountMatch = lines.map((line) => AMOUNT_SUFFIX.exec(line)).find(Boolean)
-  if (!dateMatch || !amountMatch) return null
+  if (!amountMatch) {
+    // A row with a date but no recognized amount is usually not "not a transaction" -- it's
+    // AMOUNT_SUFFIX failing to match something it should (e.g. an unlisted trailing glyph, as
+    // happened with Amex Gold's U+29EB). Warn instead of dropping silently so the next mismatch
+    // shows up during a parse instead of as a reconciliation error months later. Logs only the
+    // trailing codepoint, not the row text -- that text is statement content (merchant, amount).
+    const lastChar = rawText.trimEnd().slice(-1)
+    console.warn(`[pdf] row has a date but no recognized amount, dropped (page ${pageNumber}, length ${rawText.length}, trailing codepoint U+${lastChar.codePointAt(0)?.toString(16).toUpperCase().padStart(4, '0')})`)
+    return null
+  }
   const dateText = dateMatch[1] ?? dateMatch[2]
   return {
     pageNumber,
