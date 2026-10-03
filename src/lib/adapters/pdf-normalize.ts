@@ -87,6 +87,47 @@ export function resolveSignConvention(accountType: AccountType, pages: ReadonlyA
   return { isCreditCard, mismatch: isCreditCard !== isCreditCardStatement(pages) }
 }
 
+export interface StatementBalances {
+  previousBalance: number
+  newBalance: number
+}
+
+/**
+ * Pulls the statement's own printed "Previous Balance" / "New Balance" pair -- the same two
+ * numbers Reg Z requires every credit card statement to disclose -- so an import can be checked
+ * against the issuer's own arithmetic instead of trusting the deterministic parser blindly.
+ *
+ * Some issuers (Amex Gold) print three of these pairs on one page: a "Pay In Full" sub-balance,
+ * a "Pay Over Time" sub-balance, and the combined "Account Total". Rather than name-match a
+ * heading (wording varies by issuer, and the card-level detail isn't needed here), this takes the
+ * LAST pair in reading order -- checked against every real statement in test/bank pdfs, the
+ * combined total always prints last. Each "Previous Balance" line opens a pending pair; the next
+ * "New Balance" line (bare, or issuer-prefixed like "= New Balance") closes it, so a dangling,
+ * unmatched label never produces a bogus pair.
+ *
+ * Column-merged lines (the Y-tolerant line grouper in pdf.ts joins same-row text across a page's
+ * left and right columns into one string) mean a label can be followed by an unrelated field from
+ * the other column, e.g. "Previous Balance $1,814.13 Total Credit Limit $5,000". The lazy
+ * non-digit match right after the label stops at that label's own amount, before reaching the
+ * next field's number.
+ */
+export function extractStatementBalances(pages: ReadonlyArray<PdfTextPage>): StatementBalances | null {
+  let pendingPrevious: number | undefined
+  let result: StatementBalances | null = null
+  for (const page of pages) {
+    for (const line of page.lines) {
+      const previousMatch = /previous balance\D*?\$?([\d,]+\.\d{2})/i.exec(line)
+      if (previousMatch) pendingPrevious = Number(previousMatch[1].replace(/,/g, ''))
+      const newMatch = /new balance\D*?\$?([\d,]+\.\d{2})/i.exec(line)
+      if (newMatch && pendingPrevious !== undefined) {
+        result = { previousBalance: pendingPrevious, newBalance: Number(newMatch[1].replace(/,/g, '')) }
+        pendingPrevious = undefined
+      }
+    }
+  }
+  return result
+}
+
 function descriptionFrom(candidate: PdfTransactionCandidate): string {
   return candidate.rawText
     .replace(candidate.dateText, '')

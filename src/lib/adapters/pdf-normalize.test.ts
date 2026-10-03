@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ResolvedPdfAssignment } from '../llm/pdfExtractionSchema'
 import type { PdfTextPage } from './pdf'
-import { isCreditCardStatement, materializeAssignments, normalizePdfCandidates, resolveSignConvention } from './pdf-normalize'
+import { extractStatementBalances, isCreditCardStatement, materializeAssignments, normalizePdfCandidates, resolveSignConvention } from './pdf-normalize'
 
 describe('PDF candidate normalization', () => {
   it('normalizes full and inferred-year dates and bank amount signs', () => {
@@ -104,6 +104,59 @@ describe('isCreditCardStatement', () => {
 
   it('recognizes Wells Fargo-style statements that print "Minimum Payment" and "Payment Due Date" as separate fields', () => {
     expect(isCreditCardStatement([pageWithLines(['Payment Due Date 08/02/2026', 'Minimum Payment $73.00', 'New Balance $3,137.55'])])).toBe(true)
+  })
+})
+
+describe('extractStatementBalances', () => {
+  function pageWithLines(lines: string[]): PdfTextPage {
+    return { pageNumber: 1, lines, items: [] }
+  }
+
+  it('pairs Previous/New Balance even when the row is column-merged with an unrelated field (Wells Fargo)', () => {
+    const result = extractStatementBalances([pageWithLines([
+      'New Balance $3,137.55',
+      'Previous Balance $1,814.13 Total Credit Limit $5,000',
+      '= New Balance $3,137.55',
+    ])])
+    expect(result).toEqual({ previousBalance: 1814.13, newBalance: 3137.55 })
+  })
+
+  it('takes the last pair when a statement prints multiple balance boxes (Amex Gold: Pay In Full, Pay Over Time, Account Total)', () => {
+    const result = extractStatementBalances([pageWithLines([
+      'New Balance $833.47',
+      'Late Payment Warning: ... Previous Balance $0.00',
+      'New Balance = $0.00',
+      'For example: Previous Balance $18.21',
+      'Minimum Payment Due 2 years $1,115 New Balance = $833.47',
+      'Previous Balance $18.21',
+      'This date may not be the same date your bank will debit your New Balance $833.47',
+    ])])
+    expect(result).toEqual({ previousBalance: 18.21, newBalance: 833.47 })
+  })
+
+  it('matches the label even inside a sentence the column merge glued it to (Amex Delta)', () => {
+    const result = extractStatementBalances([pageWithLines([
+      'New Balance $400.23',
+      'Previous Balance $767.66',
+      'If you make no additional You will pay off the balance And you will pay an New Balance $400.23',
+    ])])
+    expect(result).toEqual({ previousBalance: 767.66, newBalance: 400.23 })
+  })
+
+  it('returns null when no Previous Balance / New Balance pair is found', () => {
+    expect(extractStatementBalances([pageWithLines(['Beginning balance on April 18, 2026', 'Deposits and other additions'])])).toBeNull()
+  })
+
+  it('returns null for a dangling Previous Balance with no matching New Balance', () => {
+    expect(extractStatementBalances([pageWithLines(['Previous Balance $18.21'])])).toBeNull()
+  })
+
+  it('finds the pair when the balance box is on a later page', () => {
+    const result = extractStatementBalances([
+      pageWithLines(['Transactions continued']),
+      pageWithLines(['Previous Balance $1,011.02', '= New Balance $2,250.74']),
+    ])
+    expect(result).toEqual({ previousBalance: 1011.02, newBalance: 2250.74 })
   })
 })
 
