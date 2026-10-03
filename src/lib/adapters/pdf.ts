@@ -54,7 +54,17 @@ export function groupTextItemsIntoLines(items: PdfTextItem[], yTolerance = 2): s
     .filter(Boolean)
 }
 
-const DATE_PREFIX = /^(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\*?)(?:\s|$)/
+/**
+ * The date is normally the first thing on a transaction line, but some issuers (Wells Fargo)
+ * print a card-ending-digits column before it on every row, e.g. "7942 06/06 06/08 ...". The
+ * second alternative allows exactly one short all-digit leading token (a card/account suffix,
+ * never more than a handful of digits) before the date, so a row isn't missed just because of
+ * that column. It deliberately does NOT accept an arbitrary leading word -- that was tried and
+ * caught real false positives elsewhere (an Amex interest-rate table row like
+ * "Purchases 05/13/2026 28.49% ...", and page footers like "p. 7/9" both have a date-shaped
+ * second token but aren't transactions; digits-only avoids both).
+ */
+const DATE_PREFIX = /^(?:(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\*?)|\d{1,6}\s+(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\*?))(?:\s|$)/
 const AMOUNT_SUFFIX = /([+-]?\$?\d[\d,]*\.\d{2})(-)?(?:\s*[♦◆])?$/
 const SECTION_LINE = /^(?:total|fees|interest|transactions|account|summary|payment|important|continued)\b/i
 
@@ -63,9 +73,10 @@ function candidateFromLines(pageNumber: number, lines: string[]): PdfTransaction
   const dateMatch = DATE_PREFIX.exec(rawText)
   const amountMatch = lines.map((line) => AMOUNT_SUFFIX.exec(line)).find(Boolean)
   if (!dateMatch || !amountMatch) return null
+  const dateText = dateMatch[1] ?? dateMatch[2]
   return {
     pageNumber,
-    dateText: dateMatch[1].replace('*', ''),
+    dateText: dateText.replace('*', ''),
     amountText: `${amountMatch[1]}${amountMatch[2] ?? ''}`,
     rawText,
   }

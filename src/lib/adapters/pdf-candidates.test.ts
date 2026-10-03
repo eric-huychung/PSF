@@ -34,4 +34,25 @@ describe('PDF transaction candidates', () => {
       rawText: '07/25/26 AMAZON MARKETPLACE $31.46 MERCHANDISE',
     }])
   })
+
+  it('recognizes a row prefixed with a card-ending-digits column before the date (Wells Fargo layout)', () => {
+    expect(findPdfTransactionCandidates([{
+      pageNumber: 3,
+      lines: ['7942 06/06 06/08 2449398HE6HD8G3B1 SDOT PAYBYPHONE PARKING WA 8.00'],
+      items: [],
+    }])).toEqual([{
+      pageNumber: 3,
+      dateText: '06/06',
+      amountText: '8.00',
+      rawText: '7942 06/06 06/08 2449398HE6HD8G3B1 SDOT PAYBYPHONE PARKING WA 8.00',
+    }])
+  })
+
+  it('does not treat a non-digit leading word as a card-number column', () => {
+    expect(findPdfTransactionCandidates([{
+      pageNumber: 4,
+      lines: ['Purchases 05/13/2026 28.49% (v) $0.00 $0.00', 'p. 7/9'],
+      items: [],
+    }])).toEqual([])
+  })
 })
