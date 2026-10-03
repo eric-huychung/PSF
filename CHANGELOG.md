@@ -1,9 +1,22 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 — 2026-10-02
 
 ### Removed
 - CSV bank adapters (Chase, Bank of America, Amex, Robinhood) and their fixtures. PDF statement import, cross-checked against an LLM evidence read, is now the only import path.
+
+### Added
+- Account type (Checking / Savings / Credit card) tagged on each account in Settings; PDF import now uses it as the authoritative sign source instead of guessing from statement text alone.
+- Pure-math balance reconciliation check for credit cards: sums parsed transactions against the statement's own Previous/New Balance.
+- Balance check tab in the credit card review modal, showing the reconciliation result next to the original statement PDF.
+
+### Fixed
+- Credit card sign disambiguation when a statement's amounts carry no sign at all.
+- Transaction rows missed when prefixed by a card-digits column.
+- Credit-card statement detection broadened beyond the exact phrase "minimum payment due".
+- Transaction rows found by the AI cross-check but missed by the deterministic parser are now surfaced instead of silently dropped.
+- A credit balance's trailing minus sign wasn't recognized when extracting the statement's own balance, causing a false reconciliation mismatch on Robinhood statements.
+- An unlisted Amex "Pay Over Time" diamond glyph could silently drop an otherwise-valid transaction row. Unmatched rows are now logged for diagnosis (without including statement content) so a missing glyph surfaces immediately instead of as a reconciliation error later.
 
 ## 0.3.0 — 2026-09-30
 
