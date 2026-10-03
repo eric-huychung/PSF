@@ -113,7 +113,28 @@ describe('Settings banks & accounts', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Add account' }))
       await Promise.resolve()
     })
-    expect(writeAccounts).toHaveBeenCalledWith([{ bank: 'Chase', accounts: ['Checking'] }])
+    expect(writeAccounts).toHaveBeenCalledWith([{ bank: 'Chase', accounts: [{ name: 'Checking', type: 'checking' }] }])
+  })
+
+  it('tags the account with the type picked before adding it', async () => {
+    const writeAccounts = vi.fn().mockResolvedValue(undefined)
+    const readAccounts = vi.fn().mockResolvedValue([{ bank: 'Chase', accounts: [] }])
+    render(<Settings storage={createStorage(vi.fn(), { readAccounts, writeAccounts })} />)
+    await act(async () => {
+      await Promise.resolve()
+    })
+    fireEvent.click(screen.getByRole('radio', { name: 'Banks & accounts' }))
+
+    fireEvent.change(screen.getByPlaceholderText('Add an account, e.g. Checking'), { target: { value: 'Freedom Unlimited' } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('radio', { name: 'Credit card' }))
+      await Promise.resolve()
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Add account' }))
+      await Promise.resolve()
+    })
+    expect(writeAccounts).toHaveBeenCalledWith([{ bank: 'Chase', accounts: [{ name: 'Freedom Unlimited', type: 'credit' }] }])
   })
 
   it('rejects a duplicate bank name', async () => {

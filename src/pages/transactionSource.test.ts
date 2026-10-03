@@ -3,8 +3,8 @@ import type { BankAccount, StorageLayer } from '../lib/types'
 import { loadTransactions, matchingAccounts } from './transactionSource'
 
 const accounts: BankAccount[] = [
-  { bank: 'chase', accounts: ['checking', 'savings'] },
-  { bank: 'amex', accounts: ['checking'] },
+  { bank: 'chase', accounts: [{ name: 'checking', type: 'checking' }, { name: 'savings', type: 'savings' }] },
+  { bank: 'amex', accounts: [{ name: 'checking', type: 'checking' }] },
 ]
 
 describe('matchingAccounts', () => {

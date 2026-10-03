@@ -10,8 +10,8 @@ vi.mock('../lib/adapters/pdf', async () => {
 const { extractPdfText } = await import('../lib/adapters/pdf')
 
 const accounts: BankAccount[] = [
-  { bank: 'chase', accounts: ['checking'] },
-  { bank: 'amex', accounts: ['gold', 'platinum'] },
+  { bank: 'chase', accounts: [{ name: 'checking', type: 'checking' }] },
+  { bank: 'amex', accounts: [{ name: 'gold', type: 'credit' }, { name: 'platinum', type: 'credit' }] },
 ]
 
 function makeStorage(overrides: Partial<StorageLayer> = {}): StorageLayer {

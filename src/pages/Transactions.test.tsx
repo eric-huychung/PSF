@@ -22,7 +22,7 @@ function createStorage(overrides: Partial<StorageLayer> = {}): StorageLayer {
   }
 }
 
-const accounts: BankAccount[] = [{ bank: 'chase', accounts: ['checking'] }]
+const accounts: BankAccount[] = [{ bank: 'chase', accounts: [{ name: 'checking', type: 'checking' }] }]
 
 async function drillToStatements() {
   fireEvent.click(screen.getByRole('button', { name: /chase/ }))

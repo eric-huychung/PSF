@@ -107,7 +107,7 @@ export function BankAccountSelect({ accounts, bank, account, onBankChange, onAcc
         onChange={onAccountChange}
         disabled={disabled || !bank}
         required={required}
-        options={accountsForBank.map((name) => ({ value: name, label: name }))}
+        options={accountsForBank.map((item) => ({ value: item.name, label: item.name }))}
       />
     </div>
   )

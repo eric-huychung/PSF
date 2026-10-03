@@ -256,7 +256,7 @@ export function Transactions({ storage, accounts, categories = EMPTY_CATEGORIES,
               <p className="py-10 text-center text-sm text-muted-foreground">No accounts yet. Add one in Settings.</p>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {accountsForBank.map((name) => <AccountCard key={name} bank={bank} account={name} onOpen={() => setAccount(name)} />)}
+                {accountsForBank.map((item) => <AccountCard key={item.name} bank={bank} account={item.name} onOpen={() => setAccount(item.name)} />)}
               </div>
             )
           )}

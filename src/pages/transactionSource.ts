@@ -14,8 +14,8 @@ export interface AccountRef {
 export function matchingAccounts(accounts: BankAccount[], bank: string, account: string): AccountRef[] {
   return accounts.flatMap((entry) => {
     if (bank && entry.bank !== bank) return []
-    const names = account ? entry.accounts.filter((name) => name === account) : entry.accounts
-    return names.map((name) => ({ bank: entry.bank, account: name }))
+    const names = account ? entry.accounts.filter((item) => item.name === account) : entry.accounts
+    return names.map((item) => ({ bank: entry.bank, account: item.name }))
   })
 }
 

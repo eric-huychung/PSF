@@ -249,7 +249,8 @@ export function Upload({ storage, accounts, categorizer: suppliedCategorizer, ca
                   {entry.bank}
                 </div>
                 <div className="flex flex-col gap-2 pl-7">
-                  {entry.accounts.map((accountName) => {
+                  {entry.accounts.map((account) => {
+                    const accountName = account.name
                     const months = (coverage.find((item) => item.bank === entry.bank && item.account === accountName)?.months ?? [])
                       .filter((month) => month.year === selectedCoverageYear)
                     return (

@@ -21,7 +21,7 @@ function createStorage(readMonth: StorageLayer['readMonth']): StorageLayer {
   }
 }
 
-const accounts: BankAccount[] = [{ bank: 'chase', accounts: ['checking'] }]
+const accounts: BankAccount[] = [{ bank: 'chase', accounts: [{ name: 'checking', type: 'checking' }] }]
 
 describe('Dashboard', () => {
   it('loads the default month range once instead of reloading after each render', async () => {

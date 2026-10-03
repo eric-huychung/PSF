@@ -97,13 +97,24 @@ describe('accounts', () => {
   it('reads back exactly the banks and accounts that were written', async () => {
     const storage = createStorageLayer(folder.asHandle())
     const accounts: BankAccount[] = [
-      { bank: 'chase', accounts: ['checking', 'savings'] },
-      { bank: 'amex', accounts: ['checking'] },
+      { bank: 'chase', accounts: [{ name: 'checking', type: 'checking' }, { name: 'savings', type: 'savings' }] },
+      { bank: 'amex', accounts: [{ name: 'checking', type: 'checking' }] },
     ]
 
     await storage.writeAccounts(accounts)
 
     await expect(storage.readAccounts()).resolves.toEqual(accounts)
+  })
+
+  it('upgrades accounts.json written before account types existed, guessing a type from the name', async () => {
+    const storage = createStorageLayer(folder.asHandle())
+    await folder.asHandle().getFileHandle('accounts.json', { create: true })
+      .then((handle) => handle.createWritable())
+      .then((writable) => writable.write(JSON.stringify([{ bank: 'Wells Fargo', accounts: ['Credit Card'] }])).then(() => writable.close()))
+
+    await expect(storage.readAccounts()).resolves.toEqual([
+      { bank: 'Wells Fargo', accounts: [{ name: 'Credit Card', type: 'credit' }] },
+    ])
   })
 })
 

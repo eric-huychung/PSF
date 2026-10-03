@@ -3,7 +3,7 @@ import type { BankAccount, Rule, StorageLayer, StoredTransaction } from '../lib/
 import { currentMonth } from './months'
 import { recheckCategories } from './recheckCategories'
 
-const accounts: BankAccount[] = [{ bank: 'chase', accounts: ['checking'] }]
+const accounts: BankAccount[] = [{ bank: 'chase', accounts: [{ name: 'checking', type: 'checking' }] }]
 const rules: Rule[] = [{ descriptionPattern: 'Trader Joes', categoryId: 'groceries' }]
 
 function txn(description: string, categoryId: string): StoredTransaction {

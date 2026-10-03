@@ -26,10 +26,19 @@ export interface Category {
   isTransfer?: boolean
 }
 
-/** A bank the user has set up, with the accounts they hold there. `bank`/`accounts` double as the storage keys used in `readMonth`/`writeMonth` -- no separate ids. */
+/** Which sign convention a PDF statement for this account should use -- see pdf-normalize.ts's isCreditCardStatement. */
+export type AccountType = 'checking' | 'savings' | 'credit'
+
+/** One account at a bank. `name` doubles as the storage key used in `readMonth`/`writeMonth`. */
+export interface Account {
+  name: string
+  type: AccountType
+}
+
+/** A bank the user has set up, with the accounts they hold there. `bank`/account `name` double as the storage keys used in `readMonth`/`writeMonth` -- no separate ids. */
 export interface BankAccount {
   bank: string
-  accounts: string[]
+  accounts: Account[]
 }
 
 /** A merchant-description -> category mapping learned from user corrections. */

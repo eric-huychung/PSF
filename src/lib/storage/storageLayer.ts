@@ -1,5 +1,6 @@
 import type { StorageLayer } from '../types'
 import { StorageError, toStorageError } from './fsAccess'
+import { normalizeAccounts } from './normalizeAccounts'
 
 const TRANSACTIONS_DIR = 'transactions'
 
@@ -93,7 +94,7 @@ export function createStorageLayer(folder: FileSystemDirectoryHandle, onError?: 
     writeBudgets: withTypedErrors((budgets) => writeJson(folder, 'budgets.json', budgets), onError),
     readSettings: withTypedErrors(() => readJson(folder, 'settings.json', null), onError),
     writeSettings: withTypedErrors((settings) => writeJson(folder, 'settings.json', settings), onError),
-    readAccounts: withTypedErrors(() => readJson(folder, 'accounts.json', []), onError),
+    readAccounts: withTypedErrors(async () => normalizeAccounts(await readJson(folder, 'accounts.json', [])), onError),
     writeAccounts: withTypedErrors((accounts) => writeJson(folder, 'accounts.json', accounts), onError),
   }
 }

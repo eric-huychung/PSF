@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
+import type { AccountType } from './types'
 import {
   Baby,
   Briefcase,
@@ -58,14 +59,13 @@ export function getCategoryIcon(name: string): LucideIcon {
   return match?.icon ?? Tag
 }
 
-const ACCOUNT_ICON_RULES: Array<{ icon: LucideIcon; keywords: string[] }> = [
-  { icon: PiggyBank, keywords: ['saving'] },
-  { icon: CreditCard, keywords: ['credit'] },
-]
+const ACCOUNT_TYPE_ICONS: Record<AccountType, LucideIcon> = {
+  checking: Wallet,
+  savings: PiggyBank,
+  credit: CreditCard,
+}
 
-/** Decorative-only: matches an account name (e.g. "Checking", "Savings") to a representative icon. */
-export function getAccountIcon(name: string): LucideIcon {
-  const lower = name.toLowerCase()
-  const match = ACCOUNT_ICON_RULES.find((rule) => rule.keywords.some((keyword) => lower.includes(keyword)))
-  return match?.icon ?? Wallet
+/** Decorative-only: one icon per account type. */
+export function getAccountIcon(type: AccountType): LucideIcon {
+  return ACCOUNT_TYPE_ICONS[type]
 }

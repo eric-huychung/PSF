@@ -9,7 +9,7 @@ import { BankPicker, OTHER_BANK } from '../components/ui/bank-picker'
 import { findBankOption } from '../lib/banks'
 import { getAccountIcon, getCategoryIcon } from '../lib/settingsIcons'
 import { compactRules } from '../lib/categorization/rulesCache'
-import type { BankAccount, Category, CategoryBudget, Rule, StorageLayer } from '../lib/types'
+import type { Account, AccountType, BankAccount, Category, CategoryBudget, Rule, StorageLayer } from '../lib/types'
 import { recheckCategories } from './recheckCategories'
 import { useAsyncAction } from './useAsyncAction'
 
@@ -90,11 +90,17 @@ function validateBankName(name: string, accounts: BankAccount[]): string | null 
   return null
 }
 
-function validateAccountName(name: string, existingAccounts: string[]): string | null {
+const ACCOUNT_TYPE_OPTIONS: Array<{ value: AccountType; label: string }> = [
+  { value: 'checking', label: 'Checking' },
+  { value: 'savings', label: 'Savings' },
+  { value: 'credit', label: 'Credit card' },
+]
+
+function validateAccountName(name: string, existingAccounts: Account[]): string | null {
   const trimmedName = name.trim()
   if (!trimmedName) return 'Account name is required.'
   if (trimmedName.length > MAX_ACCOUNT_NAME_LENGTH) return `Account names must be ${MAX_ACCOUNT_NAME_LENGTH} characters or fewer.`
-  if (existingAccounts.some((account) => account.toLocaleLowerCase() === trimmedName.toLocaleLowerCase())) {
+  if (existingAccounts.some((account) => account.name.toLocaleLowerCase() === trimmedName.toLocaleLowerCase())) {
     return 'That account already exists for this bank.'
   }
   return null
@@ -117,6 +123,7 @@ export function Settings({ storage, categories: categoriesProp = EMPTY_CATEGORIE
   const [newBank, setNewBank] = useState('')
   const [bankChoice, setBankChoice] = useState('')
   const [newAccountByBank, setNewAccountByBank] = useState<Record<string, string>>({})
+  const [newAccountTypeByBank, setNewAccountTypeByBank] = useState<Record<string, AccountType>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -357,13 +364,15 @@ export function Settings({ storage, categories: categoriesProp = EMPTY_CATEGORIE
       setError(validationError)
       return
     }
-    const nextAccounts = accounts.map((item) => (item.bank === bank ? { ...item, accounts: [...item.accounts, trimmedName] } : item))
+    const type = newAccountTypeByBank[bank] ?? 'checking'
+    const nextAccounts = accounts.map((item) => (item.bank === bank ? { ...item, accounts: [...item.accounts, { name: trimmedName, type }] } : item))
     await persistAccounts(nextAccounts, 'Account added.')
     setNewAccountByBank((current) => ({ ...current, [bank]: '' }))
+    setNewAccountTypeByBank((current) => ({ ...current, [bank]: 'checking' }))
   }
 
   async function removeAccount(bank: string, account: string) {
-    const nextAccounts = accounts.map((item) => (item.bank === bank ? { ...item, accounts: item.accounts.filter((name) => name !== account) } : item))
+    const nextAccounts = accounts.map((item) => (item.bank === bank ? { ...item, accounts: item.accounts.filter((entry) => entry.name !== account) } : item))
     await persistAccounts(nextAccounts, 'Account removed.')
   }
 
@@ -860,18 +869,18 @@ export function Settings({ storage, categories: categoriesProp = EMPTY_CATEGORIE
                       {entry.accounts.length > 0 && (
                         <ul className="flex flex-col gap-0.5 pl-9" aria-label={`${entry.bank} accounts`}>
                           {entry.accounts.map((account) => {
-                            const AccountIcon = getAccountIcon(account)
+                            const AccountIcon = getAccountIcon(account.type)
                             return (
-                              <li key={account} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+                              <li key={account.name} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
                                 <AccountIcon size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-                                <span className="min-w-0 flex-1 break-words text-sm text-foreground">{account}</span>
+                                <span className="min-w-0 flex-1 break-words text-sm text-foreground">{account.name}</span>
                                 <Button
                                   type="button"
                                   size="icon"
                                   variant="ghost"
-                                  onClick={() => confirmRemoveAccount(entry.bank, account)}
+                                  onClick={() => confirmRemoveAccount(entry.bank, account.name)}
                                   disabled={accountsAction.pending}
-                                  aria-label={`Remove ${account}`}
+                                  aria-label={`Remove ${account.name}`}
                                   className="size-8 hover:text-destructive"
                                 >
                                   <Trash2 size={14} aria-hidden="true" />
@@ -894,6 +903,13 @@ export function Settings({ storage, categories: categoriesProp = EMPTY_CATEGORIE
                           maxLength={MAX_ACCOUNT_NAME_LENGTH}
                           disabled={accountsAction.pending}
                           className="h-9 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground"
+                        />
+                        <SegmentedControl
+                          aria-label={`Account type for ${entry.bank}`}
+                          size="sm"
+                          value={newAccountTypeByBank[entry.bank] ?? 'checking'}
+                          onValueChange={(type) => setNewAccountTypeByBank((current) => ({ ...current, [entry.bank]: type }))}
+                          options={ACCOUNT_TYPE_OPTIONS}
                         />
                         <Button type="submit" size="sm" variant="secondary" disabled={accountsAction.pending}>
                           <Plus size={14} aria-hidden="true" />

@@ -25,7 +25,7 @@ export function useBankAccountSelection(accounts: BankAccount[]): BankAccountSel
       setAccount('')
       return
     }
-    if (account && !entry.accounts.includes(account)) {
+    if (account && !entry.accounts.some((item) => item.name === account)) {
       setAccount('')
     }
   }, [accounts, bank, account])
