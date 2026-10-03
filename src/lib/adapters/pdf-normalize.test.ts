@@ -81,6 +81,10 @@ describe('isCreditCardStatement', () => {
   it('does not flag a checking/savings statement', () => {
     expect(isCreditCardStatement([pageWithLines(['Beginning balance on April 18, 2026', 'Deposits and other additions'])])).toBe(false)
   })
+
+  it('recognizes Wells Fargo-style statements that print "Minimum Payment" and "Payment Due Date" as separate fields', () => {
+    expect(isCreditCardStatement([pageWithLines(['Payment Due Date 08/02/2026', 'Minimum Payment $73.00', 'New Balance $3,137.55'])])).toBe(true)
+  })
 })
 
 function accepted(overrides: Partial<ResolvedPdfAssignment>): ResolvedPdfAssignment {

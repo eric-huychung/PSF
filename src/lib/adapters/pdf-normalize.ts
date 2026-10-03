@@ -51,9 +51,16 @@ function parseAmount(value: string): number {
 }
 
 /**
- * Every US credit card statement is required (Truth in Lending Act / Reg Z) to print a
- * "Minimum Payment Due" -- a phrase that never appears on a checking/savings statement. That
- * makes it a deterministic signal for which sign convention the page is using, not a guess.
+ * Every US credit card statement is required (Truth in Lending Act / Reg Z) to print a minimum
+ * payment disclosure -- a phrase that never appears on a checking/savings statement. That makes
+ * it a deterministic signal for which sign convention the page is using, not a guess.
+ *
+ * Matches on "minimum payment" alone, not "minimum payment due" -- issuers don't all glue those
+ * two words together. Wells Fargo prints "Minimum Payment" and "Payment Due Date" as two separate
+ * fields, so the stricter phrase never matched a real Wells Fargo statement and every amount on
+ * it kept the checking/savings sign convention. Checked against real Amex, Wells Fargo, and
+ * Robinhood credit card statements and real BoA checking/savings statements: the looser phrase
+ * still matches every credit card statement and still never appears on checking/savings.
  *
  * Credit card statements print a charge as a bare positive number and a payment/credit with an
  * explicit minus -- the opposite of our convention (positive = money in). Checking/savings
@@ -61,7 +68,7 @@ function parseAmount(value: string): number {
  * credit card statement's raw text sign needs flipping; a checking statement's doesn't.
  */
 export function isCreditCardStatement(pages: ReadonlyArray<PdfTextPage>): boolean {
-  return pages.some((page) => page.lines.some((line) => /minimum payment due/i.test(line)))
+  return pages.some((page) => page.lines.some((line) => /minimum payment\b/i.test(line)))
 }
 
 function descriptionFrom(candidate: PdfTransactionCandidate): string {
