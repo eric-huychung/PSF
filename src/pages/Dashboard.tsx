@@ -3,7 +3,7 @@ import { CategoryTargetChart, SpendingByCategoryChart, SpendingOverTimeChart, ty
 import { Amount, BankAccountSelect, Card, CardContent, CardDescription, CardHeader, CardTitle, SegmentedControl, StatTile, type SegmentedOption } from '../components/ui'
 import { lookupCategory } from '../lib/categorization/rulesCache'
 import type { BankAccount, Category, CategoryBudget, Rule, StorageLayer, StoredTransaction } from '../lib/types'
-import { currentMonth, monthKey, monthLabel, recentMonths, type MonthRef } from './months'
+import { currentMonth, monthKey, monthLabel, recentMonths, shiftMonth, type MonthRef } from './months'
 import { loadTransactions, matchingAccounts } from './transactionSource'
 import { useBankAccountSelection } from './useBankAccountSelection'
 
@@ -137,7 +137,7 @@ export function Dashboard({ storage, accounts, categories = EMPTY_CATEGORIES, mo
   const [error, setError] = useState<string>()
 
   // `months` lets tests pin an exact range; otherwise the period filter below picks it.
-  const effectiveMonths = useMemo(() => months ?? recentMonths(Number(period)), [months, period])
+  const effectiveMonths = useMemo(() => months ?? recentMonths(Number(period), shiftMonth(currentMonth(), -1)), [months, period])
 
   useEffect(() => {
     let active = true
