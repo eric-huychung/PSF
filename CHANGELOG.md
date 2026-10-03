@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1 — 2026-10-03
+
+### Fixed
+- Dashboard averages for a time range now cover the last N complete months. Previously the in-progress current month was dropped after being selected, so "Last month" showed $0 and "3 months" averaged only two months.
+
 ## 0.4.0 — 2026-10-02
 
 ### Removed
